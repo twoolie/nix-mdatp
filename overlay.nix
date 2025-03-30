@@ -1,1 +1,1 @@
-f: p: { mdatp = f.callPackage ./package.nix { }; }
+final: prev: { mdatp = final.callPackage ./package.nix { }; }
