@@ -2,6 +2,7 @@
   stdenv,
   lib,
   fetchurl,
+  makeWrapper,
   dpkg,
   systemd,
   libselinux,
@@ -15,8 +16,11 @@
   libcap,
   acl,
   zlib,
+  gzip,
   fuse,
   sqlite,
+  coreutils,
+  gnugrep,
   nixosTests,
 }:
 let
@@ -41,14 +45,13 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "mdatp";
-  version = "101.24092.0002";
-
+  version = "101.25012.0000";
   src = fetchurl {
     url = "https://packages.microsoft.com/debian/12/prod/pool/main/m/${pname}/${pname}_${version}_amd64.deb";
-    hash = "sha256-56ScKwpUB6U1jL55eOgn95zvrUn4uXdbj1XJEMfSqMQ=";
+    hash = "sha256-EBnfz4z1t4jwGPKZIKTK1TFacV3UA3BAD1lS+ixs2TE=";
   };
 
-  nativeBuildInputs = [ dpkg ];
+  nativeBuildInputs = [ dpkg makeWrapper ];
 
   installPhase = ''
     runHook preInstall
@@ -60,15 +63,19 @@ stdenv.mkDerivation rec {
     # cp -a usr/lib/tmpfiles.d $out/lib
     mkdir -p $out/lib/systemd/system
     cp -a opt/microsoft/mdatp/conf/mdatp.service $out/lib/systemd/system/
+    cat > $out/lib/systemd/system/mdatp-prestart.service << EOF
+    [Unit]
+    Description=Microsoft Defender Prestart
+    NeededBy=mdatp.service
+
+    [Service]
+    Type=oneshot
+    ExecStart=/bin/sh -c "mkdir -p /boot && ${gzip}/bin/zcat > /boot/config-$$(${coreutils}/bin/uname -r)"
+    EOF
 
     # Copy internal libs
     mkdir -p $out/lib
-    cp -a opt/microsoft/mdatp/lib/libwdavdaemon_core.so $out/lib
-    cp -a opt/microsoft/mdatp/lib/libwdavdaemon_edr_dylib.so $out/lib
-    cp -a opt/microsoft/mdatp/lib/libazure-storage-lite.so $out/lib
-    cp -a opt/microsoft/mdatp/lib/libcpprest.so.2.10 $out/lib
-    # Segfaults with boost183 :(
-    cp -a opt/microsoft/mdatp/lib/libboost*.so.* $out/lib
+    cp -a opt/microsoft/mdatp/lib/lib*.so.* $out/lib
 
     # Patch binaries
     printf $out/bin/wdavdaemon,$out/bin/wdavdaemonclient | xargs -d ',' patchelf \
@@ -76,21 +83,17 @@ stdenv.mkDerivation rec {
       --set-rpath ${libPath.mdatp}:$out/lib \
       --replace-needed libminizip.so.2.5 libminizip-ng.so
 
+    wrapProgram $out/bin/wdavdaemon \
+      --prefix PATH : ${lib.makeBinPath [ coreutils gnugrep ]}
+
     # Patch libs
     ls -d $out/lib/*.so | xargs patchelf \
       --set-rpath ${libPath.mdatp}:$out/lib \
       --replace-needed libminizip.so.2.5 libminizip-ng.so
 
     substituteInPlace $out/lib/systemd/system/mdatp.service \
-      --replace \
-        ExecStart=/opt/microsoft/mdatp/sbin/wdavdaemon \
-        ExecStart=$out/bin/wdavdaemon \
-      --replace \
-        WorkingDirectory=/opt/microsoft/mdatp/sbin \
-        WorkingDirectory=$out/bin/ \
-      --replace \
-        Environment=LD_LIBRARY_PATH=/opt/microsoft/mdatp/lib/ \
-        Environment=LD_LIBRARY_PATH=${libPath.mdatp}
+      --replace /opt/microsoft/mdatp/sbin $out/bin \
+      --replace /opt/microsoft/mdatp/lib ${libPath.mdatp}
 
     runHook postInstall
   '';
