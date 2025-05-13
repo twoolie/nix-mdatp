@@ -8,7 +8,6 @@ let
     INSTALL=/opt/microsoft/mdatp
     PATH=${lib.makeBinPath (with pkgs; [ coreutils gnugrep gzip ])}
     mkdir -p /boot && zcat /proc/config.gz > /boot/config-$(uname -r)  # wdavdaemon checks for this file
-    mkdir -p $INSTALL
     if [[ -e $INSTALL ]]; then
       if [[ -L $INSTALL ]]; then
         if [[ $(readlink $INSTALL) != $INSTALL ]]; then
