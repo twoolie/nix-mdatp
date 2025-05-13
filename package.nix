@@ -14,6 +14,7 @@
   openssl,
   gcc,
   libcap,
+  pcre,
   acl,
   zlib,
   gzip,
@@ -24,24 +25,23 @@
   nixosTests,
 }:
 let
-  libPath = {
-    mdatp = lib.makeLibraryPath [
-      systemd
-      libselinux
-      libcxx
-      minizip-ng
-      curl
-      libseccomp
-      libuuid
-      openssl
-      gcc.cc.lib # Specifically for libatomic
-      libcap
-      acl
-      zlib
-      fuse
-      sqlite
-    ];
-  };
+  libPath = lib.makeLibraryPath [
+    systemd
+    libselinux
+    libcxx
+    minizip-ng
+    curl
+    libseccomp
+    libuuid
+    openssl
+    gcc.cc.lib # Specifically for libatomic
+    libcap
+    pcre
+    acl
+    zlib
+    fuse
+    sqlite
+  ];
 in
 stdenv.mkDerivation rec {
   pname = "mdatp";
@@ -57,43 +57,24 @@ stdenv.mkDerivation rec {
     runHook preInstall
 
     mkdir -p $out/bin
-    cp -a opt/microsoft/mdatp/sbin/* $out/bin/
-    # mkdir -p $out/lib/security
-    # cp -a ./usr/lib/x86_64-linux-gnu/security/pam_intune.so $out/lib/security/
-    # cp -a usr/lib/tmpfiles.d $out/lib
-    mkdir -p $out/lib/systemd/system
-    cp -a opt/microsoft/mdatp/conf/mdatp.service $out/lib/systemd/system/
-    cat > $out/lib/systemd/system/mdatp-prestart.service << EOF
-    [Unit]
-    Description=Microsoft Defender Prestart
-    NeededBy=mdatp.service
-
-    [Service]
-    Type=oneshot
-    ExecStart=/bin/sh -c "mkdir -p /boot && ${gzip}/bin/zcat > /boot/config-$$(${coreutils}/bin/uname -r)"
-    EOF
+    cp -ar opt/microsoft/mdatp/sbin $out/sbin
+    ln -s $out/sbin/wdavdaemonclient $out/bin/mdatp
 
     # Copy internal libs
-    mkdir -p $out/lib
-    cp -a opt/microsoft/mdatp/lib/lib*.so.* $out/lib
+    cp -ar opt/microsoft/mdatp/lib $out/lib
+
+    # Copy configuration
+    cp -ar opt/microsoft/mdatp/conf $out/conf
+    cp -ar opt/microsoft/mdatp/resources $out/resources
+    cp -ar opt/microsoft/mdatp/definitions $out/definitions
 
     # Patch binaries
-    printf $out/bin/wdavdaemon,$out/bin/wdavdaemonclient | xargs -d ',' patchelf \
-      --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) \
-      --set-rpath ${libPath.mdatp}:$out/lib \
-      --replace-needed libminizip.so.2.5 libminizip-ng.so
-
-    wrapProgram $out/bin/wdavdaemon \
-      --prefix PATH : ${lib.makeBinPath [ coreutils gnugrep ]}
-
-    # Patch libs
-    ls -d $out/lib/*.so | xargs patchelf \
-      --set-rpath ${libPath.mdatp}:$out/lib \
-      --replace-needed libminizip.so.2.5 libminizip-ng.so
-
-    substituteInPlace $out/lib/systemd/system/mdatp.service \
-      --replace /opt/microsoft/mdatp/sbin $out/bin \
-      --replace /opt/microsoft/mdatp/lib ${libPath.mdatp}
+    for executable in $out/bin/mdatp $out/sbin/*; do
+      wrapProgram $executable \
+        --set-default NIX_LD $(cat $NIX_CC/nix-support/dynamic-linker) \
+        --prefix NIX_LD_LIBRARY_PATH : $out/lib:${libPath} \
+        --prefix PATH : ${lib.makeBinPath [ coreutils gnugrep ]} ;
+    done
 
     runHook postInstall
   '';

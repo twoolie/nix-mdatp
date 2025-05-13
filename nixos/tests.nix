@@ -9,6 +9,7 @@ pkgs.nixosTest {
 
     services.mdatp = {
       enable = true;
+      enableShellIntegration = true;
     };
 
     system.stateVersion = "24.11";
@@ -16,6 +17,6 @@ pkgs.nixosTest {
 
   testScript = ''
     machine.wait_for_unit("mdatp.service")
-    machine.succeed("wdavdaemonclient", "version")
+    machine.succeed("mdatp", "version")
   '';
 }
