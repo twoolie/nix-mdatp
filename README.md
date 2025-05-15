@@ -38,9 +38,9 @@ Here's an example flake:
       modules = [
         # ...
         mdatp.nixosModules.mdatp
-		{
-		  services.mdatp.enable = true;
-		}
+        {
+          services.mdatp.enable = true;
+        }
       ];
     };
   };
