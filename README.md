@@ -5,7 +5,7 @@ This flake allows you to run Microsoft Defender for Endpoint (also known as Micr
 Please feel free to submit the package and module to nixpkgs if you are willing to maintain the package!
 
 > [!WARNING]  
-> This is an unofficial repackaging of Microsoft's Defender for Endpoint package. Microsoft states that:
+> This is an unofficial repackaging of Microsoft's Defender for Endpoint package. [Microsoft states in their deployment process guide that:](https://learn.microsoft.com/en-us/defender-endpoint/linux-installer-script#deployment-process)
 > > Repackaging the Defender for Endpoint installation package isn't a supported scenario. Doing so can negatively affect the integrity of the product and lead to adverse results, including but not limited to triggering tampering alerts and updates failing to apply.
 > It is your responsibility to check that Defender for Endpoint correctly runs on your machine. I am not responsible for any impact to the security of your device, nor is anyone else who maintains or contributes to this repository.
 
