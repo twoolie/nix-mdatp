@@ -9,30 +9,24 @@ let
     PATH=${lib.makeBinPath (with pkgs; [ coreutils gnugrep gzip ])}
     mkdir -p /boot && zcat /proc/config.gz > /boot/config-$(uname -r)  # wdavdaemon checks for this file
     # Create parent directory for $INSTALL symlink
-    mkdir -p /opt/microsoft
-    if [[ -e $INSTALL ]]; then
-      if [[ -L $INSTALL ]]; then
-        if [[ $(readlink $INSTALL) != $INSTALL ]]; then
-          rm $INSTALL
-        fi
-      else
-        echo "oops, $INSTALL is already installed?"
-        exit -1
-      fi
-    fi
-    if [[ ! -e $INSTALL ]]; then
-      ln -s -T ${cfg.package} $INSTALL
-    fi
+    mkdir -p $(dirname $INSTALL)
+    rm -f $INSTALL
+    ln -s ${cfg.package} $INSTALL
   '';
 in {
-  options.services.mdatp = {
-    enable = lib.mkEnableOption "Whether to enable Microsoft Defender Advanced Threat Protection.";
-    package = lib.mkPackageOption pkgs "mdatp" { };
-    enableBashIntegration = lib.mkEnableOption "Enable Bash integration" // {
+  options.services.mdatp = with lib; {
+    enable = mkEnableOption "Whether to enable Microsoft Defender Advanced Threat Protection.";
+    package = mkPackageOption pkgs "mdatp" { };
+    onboard_json = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Path to mdatp_onboard.json, which will be linked into the install directory.";
+    };
+    enableBashIntegration = mkEnableOption "Enable Bash integration" // {
       default = true;
     };
-    enableZshIntegration = lib.mkEnableOption "Enable Zsh integration" // {
-      default = true;
+    enableZshIntegration = mkEnableOption "Enable Zsh integration" // {
+      default = false;
     };
   };
 
@@ -40,6 +34,10 @@ in {
     nixpkgs.overlays = [ (import ../overlay.nix) ];
 
     environment.systemPackages = [ cfg.package ];
+    environment.etc.mdatp_onboard = lib.mkIf (cfg.onboard_json != null) {
+      source = cfg.onboard_json;
+      target = "opt/microsoft/mdatp/mdatp_onboard.json";
+    };
 
     users.users.mdatp = {
       group = "mdatp";
