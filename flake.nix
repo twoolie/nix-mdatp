@@ -2,8 +2,7 @@
   description = "Unofficial Microsoft Defender Advanced Threat Protection Nix flake";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -26,8 +25,10 @@
                 virtualisation.graphics = false;  # connect serial console to terminal
               };
               users.users.root.initialPassword = "test";
+              environment.systemPackages = with pkgs; [ zip unzip ];
               services.mdatp = {
                 enable = true;
+                onboard_json = ./mdatp_onboard.json;
               };
             })
           ];
